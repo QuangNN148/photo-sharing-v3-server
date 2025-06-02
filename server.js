@@ -9,27 +9,25 @@ const connectDB = require("./db/dbConnection");
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Kết nối MongoDB
-connectDB();
-
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use("/images", express.static("public/images"));
 
-// API: Danh sách người dùng (với count bubbles)
+console.log("MONGODB_URI:", process.env.MONGODB_URI);
+connectDB();
+
+// API: Danh sách người dùng
 app.get("/user/list", async (req, res) => {
   try {
     const users = await User.find().select("_id first_name last_name").lean();
     const userList = await Promise.all(
       users.map(async (user) => {
-        // Đếm số ảnh
         const photoCount = await Photo.countDocuments({ user_id: user._id });
-        // Đếm số bình luận
         const commentCount = await Photo.aggregate([
-          { $match: { "comments.user": mongoose.Types.ObjectId(user._id) } },
+          { $match: { "comments.user_id": user._id } },
           { $unwind: "$comments" },
-          { $match: { "comments.user": mongoose.Types.ObjectId(user._id) } },
+          { $match: { "comments.user_id": user._id } },
           { $count: "count" },
         ]).then((result) => (result[0] ? result[0].count : 0));
 
@@ -81,14 +79,14 @@ app.get("/photosOfUser/:id", async (req, res) => {
       photos.map(async (photo) => {
         const comments = await Promise.all(
           photo.comments.map(async (comment) => {
-            const commentUser = await User.findById(comment.user)
+            const commentUser = await User.findById(comment.user_id)
               .select("_id first_name last_name")
               .lean();
             return {
               _id: comment._id,
               comment: comment.comment,
               date_time: comment.date_time,
-              user: commentUser || { _id: comment.user, first_name: "Unknown", last_name: "" },
+              user: commentUser || { _id: comment.user_id, first_name: "Unknown", last_name: "" },
             };
           })
         );
@@ -119,13 +117,13 @@ app.get("/commentsOfUser/:id", async (req, res) => {
     }
 
     const photos = await Photo.find({
-      "comments.user": mongoose.Types.ObjectId(req.params.id),
+      "comments.user_id": req.params.id,
     }).lean();
 
     const comments = photos
       .flatMap((photo) =>
         photo.comments
-          .filter((comment) => comment.user.toString() === req.params.id)
+          .filter((comment) => comment.user_id.toString() === req.params.id)
           .map((comment) => ({
             _id: comment._id,
             comment: comment.comment,
