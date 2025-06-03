@@ -56,7 +56,7 @@ const im = {
   first_name: "Ian",
   last_name: "Malcolm",
   location: "Austin, TX",
-  description: "Should've stayed in the car.",
+  description: "Should've stayed in the plane.",
   occupation: "Mathematician",
 };
 const er = {
